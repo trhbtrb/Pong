@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enhanced Multi-Ball Pong Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid white;
+            background: #000;
+            position: relative;
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            font-size: 24px;
+            color: white;
+        }
+        #questionBoxes {
+            position: absolute;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Player: 0 | AI: 0</div>
+    <canvas id="gameCanvas" width="1280" height="500"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        // Game state
+        let playerScore = 0;
+        let aiScore = 0;
+        let initialBoxesHit = false; // Track if both boxes have been hit
+
+        // Question box settings
+        const questionBoxes = [
+            {
+                x: canvas.width / 2 - 25,
+                y: 50,
+                width: 50,
+                height: 50,
+                active: true
+            },
+            {
+                x: canvas.width / 2 - 25,
+                y: canvas.height - 100,
+                width: 50,
+                height: 50,
+                active: true
+            }
+        ];
+
+        // Array to hold all active balls
+        const balls = [{
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 10,
+            speedX: 6 * (Math.random() > 0.5 ? 1 : -1),
+            speedY: 6 * (Math.random() * 2 - 1),
+            trail: [],
+            trailLength: 15
+        }];
+
+        // Paddle settings
+        const paddleWidth = 20;
+        const paddleHeight = 120;
+        const paddleGap = 100;
+
+        // Player paddles (2) with different colors
+        const playerPaddles = [
+            { 
+                x: paddleGap,
+                y: canvas.height / 2 - paddleHeight / 2,
+                speed: 0,
+                color: 'blue'
+            },
+            { 
+                x: paddleGap * 2,
+                y: canvas.height / 2 - paddleHeight / 2,
+                speed: 0,
+                color: 'green'
+            }
+        ];
+
+        // AI paddles (3) with independent and smarter behaviors
+        const aiPaddles = [
+            { 
+                x: canvas.width - paddleGap,
+                y: canvas.height / 2 - paddleHeight / 2,
+                speed: 0,
+                color: 'red',
+                maxSpeed: 12,         // Increased from 8 to 12
+                reactionDelay: 0,     // Kept at 0 for fastest response
+                lastUpdate: Date.now(),
+                intelligence: 'predictive'
+            },
+            { 
+                x: canvas.width - paddleGap * 2, 
+                y: canvas.height / 2 - paddleHeight / 2,
+                speed: 0,
+                color: 'red',
+                maxSpeed: 10,         // Increased from 7 to 10
+                reactionDelay: 40,    // Reduced from 80 to 40
+                lastUpdate: Date.now(),
+                intelligence: 'simple'
+            },
+            { 
+                x: canvas.width - paddleGap * 3, 
+                y: canvas.height / 2 - paddleHeight / 2,
+                speed: 0,
+                color: 'red',
+                maxSpeed: 14,         // Increased from 9 to 14
+                reactionDelay: 15,    // Reduced from 30 to 15
+                lastUpdate: Date.now(),
+                intelligence: 'predictive'
+            }
+        ];
+
+        // Controls for player paddles
+        document.addEventListener('keydown', (e) => {
+            // First paddle controls
+            if (e.key === 'w') playerPaddles[0].speed = -15; // Increased speed
+            if (e.key === 's') playerPaddles[0].speed = 15;  // Increased speed
+            
+            // Second paddle controls
+            if (e.key === 'ArrowUp') playerPaddles[1].speed = -15; // Increased speed
+            if (e.key === 'ArrowDown') playerPaddles[1].speed = 15;  // Increased speed
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 's') playerPaddles[0].speed = 0;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') playerPaddles[1].speed = 0;
+        });
+
+        // Update AI paddles with independent and smart behavior
+        function updateAI() {
+            aiPaddles.forEach((paddle) => {
+                const now = Date.now();
+                if (now - paddle.lastUpdate < paddle.reactionDelay) {
+                    return; // Skip update if still in reaction delay
+                }
+
+                let targetY;
+
+                if (paddle.intelligence === 'predictive') {
+                    // Predict the ball's future position when it reaches the paddle's x
+                    const predictedY = predictBallY(paddle.x, getClosestBallToPaddle(paddle.x));
+                    targetY = predictedY - paddleHeight / 2;
+                } else {
+                    // Simple tracking: follow the ball's current y position
+                    targetY = getClosestBallToPaddle(paddle.x).y - paddleHeight / 2;
+                }
+
+                const currentY = paddle.y;
+                const diff = targetY - currentY;
+
+                // Smooth AI movement
+                if (diff > paddle.maxSpeed) {
+                    paddle.speed = paddle.maxSpeed;
+                } else if (diff < -paddle.maxSpeed) {
+                    paddle.speed = -paddle.maxSpeed;
+                } else {
+                    paddle.speed = diff;
+                }
+
+                paddle.y += paddle.speed;
+
+                // Keep AI paddles within bounds
+                paddle.y = Math.max(0, Math.min(canvas.height - paddleHeight, paddle.y));
+
+                // Update lastUpdate time
+                // Removed random delay addition
+                paddle.lastUpdate = now; // Replaced `now + Math.random() * 50` with `now`
+            });
+        }
+
+        // Function to get the closest ball moving towards the paddle
+        function getClosestBallToPaddle(paddleX) {
+            let closestBall = null;
+            let closestDist = Infinity;
+
+            balls.forEach(ball => {
+                // Determine direction based on paddle's position
+                if (paddleX > canvas.width / 2 && ball.speedX > 0) { // AI paddles
+                    const dist = Math.abs(ball.x - paddleX);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestBall = ball;
+                    }
+                } else {
+                    // For player paddles, if any (Not applicable here since AI only)
+                    const dist = Math.abs(ball.x - paddleX);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestBall = ball;
+                    }
+                }
+            });
+
+            // If no ball is moving towards the paddle, center the paddle
+            if (!closestBall) {
+                return { y: canvas.height / 2 };
+            }
+
+            return closestBall;
+        }
+
+        // Function to predict the ball's Y position when it reaches a specific X
+        function predictBallY(targetX, ball) {
+            if (!ball) return canvas.height / 2;
+
+            // Clone ball's position and speed
+            let tempX = ball.x;
+            let tempY = ball.y;
+            let tempSpeedX = ball.speedX;
+            let tempSpeedY = ball.speedY;
+
+            // Calculate the time until the ball reaches the targetX
+            if (tempSpeedX === 0) return tempY; // Prevent division by zero
+            const timeToReach = (targetX - tempX) / tempSpeedX;
+
+            // If the ball is moving away from the paddle, center the paddle
+            if ((tempSpeedX > 0 && targetX < tempX) || (tempSpeedX < 0 && targetX > tempX)) {
+                return canvas.height / 2;
+            }
+
+            // Predict Y position considering wall bounces
+            let predictedY = tempY + tempSpeedY * timeToReach;
+
+            // Reflect off top and bottom walls
+            while (predictedY < 0 || predictedY > canvas.height) {
+                if (predictedY < 0) {
+                    predictedY = -predictedY;
+                } else if (predictedY > canvas.height) {
+                    predictedY = 2 * canvas.height - predictedY;
+                }
+            }
+
+            return predictedY;
+        }
+
+        // Function to create a new single ball
+        function createNewBall() {
+            return {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                radius: 10,
+                speedX: 6 * (Math.random() > 0.5 ? 1 : -1),
+                speedY: 6 * (Math.random() * 2 - 1),
+                trail: [],
+                trailLength: 15
+            };
+        }
+
+        // Function to create 3 new balls from a question box
+        function createNewBallsFromBox(sourceX, sourceY) {
+            for (let i = 0; i < 3; i++) {
+                balls.push({
+                    x: sourceX,
+                    y: sourceY,
+                    radius: 10,
+                    speedX: 6 * (Math.random() > 0.5 ? 1 : -1),
+                    speedY: 6 * (Math.random() * 2 - 1),
+                    trail: [],
+                    trailLength: 15
+                });
+            }
+        }
+
+        // Function to check if all question boxes have been hit
+        function checkAllBoxesHit() {
+            return questionBoxes.every(box => !box.active);
+        }
+
+        // Update function with integrated ball logic
+        function update() {
+            // Update player paddles
+            playerPaddles.forEach(paddle => {
+                paddle.y += paddle.speed;
+                paddle.y = Math.max(0, Math.min(canvas.height - paddleHeight, paddle.y));
+            });
+
+            // Update AI paddles
+            updateAI();
+
+            // Update all balls
+            for (let index = balls.length - 1; index >= 0; index--) {
+                const ball = balls[index];
+
+                // Update ball trail
+                ball.trail.push({ x: ball.x, y: ball.y });
+                if (ball.trail.length > ball.trailLength) {
+                    ball.trail.shift();
+                }
+
+                // Update ball position
+                ball.x += ball.speedX;
+                ball.y += ball.speedY;
+
+                // Ball collision with top and bottom
+                if (ball.y <= ball.radius || ball.y >= canvas.height - ball.radius) {
+                    ball.speedY = -ball.speedY;
+                }
+
+                // Check collision with question boxes only if they're still active
+                questionBoxes.forEach(box => {
+                    if (box.active && 
+                        ball.x + ball.radius >= box.x && 
+                        ball.x - ball.radius <= box.x + box.width &&
+                        ball.y + ball.radius >= box.y && 
+                        ball.y - ball.radius <= box.y + box.height) {
+                        
+                        box.active = false;
+                        createNewBallsFromBox(box.x + box.width / 2, box.y + box.height / 2);
+                        
+                        // Check if all boxes are now hit
+                        if (checkAllBoxesHit()) {
+                            initialBoxesHit = true;
+                        }
+                    }
+                });
+
+                // Check collision with player paddles
+                playerPaddles.forEach(paddle => {
+                    if (
+                        ball.x - ball.radius <= paddle.x + paddleWidth &&
+                        ball.x + ball.radius >= paddle.x &&
+                        ball.y >= paddle.y &&
+                        ball.y <= paddle.y + paddleHeight
+                    ) {
+                        ball.speedX = Math.abs(ball.speedX);
+                        let hitPoint = (ball.y - paddle.y) / paddleHeight - 0.5;
+                        ball.speedY += hitPoint * 2;
+
+                        // Increase speed slightly upon paddle hit
+                        ball.speedX *= 1.05;
+                        ball.speedY *= 1.05;
+                    }
+                });
+
+                // Check collision with AI paddles
+                aiPaddles.forEach(paddle => {
+                    if (
+                        ball.x + ball.radius >= paddle.x &&
+                        ball.x - ball.radius <= paddle.x + paddleWidth &&
+                        ball.y >= paddle.y &&
+                        ball.y <= paddle.y + paddleHeight
+                    ) {
+                        ball.speedX = -Math.abs(ball.speedX);
+                        let hitPoint = (ball.y - paddle.y) / paddleHeight - 0.5;
+                        ball.speedY += hitPoint * 2;
+
+                        // Increase speed slightly upon paddle hit
+                        ball.speedX *= 1.05;
+                        ball.speedY *= 1.05;
+                    }
+                });
+
+                // Score points and remove ball
+                if (ball.x < 0) {
+                    aiScore++;
+                    balls.splice(index, 1);
+                    // Always add a new ball after scoring
+                    balls.push(createNewBall());
+                } else if (ball.x > canvas.width) {
+                    playerScore++;
+                    balls.splice(index, 1);
+                    // Always add a new ball after scoring
+                    balls.push(createNewBall());
+                }
+            }
+
+            // Remove the following block since we are always adding a new ball upon scoring
+            /*
+            // If no balls left and boxes haven't been hit yet, create a new ball
+            if (balls.length === 0 && !initialBoxesHit) {
+                balls.push(createNewBall());
+            }
+            */
+
+            // Update score display
+            scoreElement.textContent = `Player: ${playerScore} | AI: ${aiScore}`;
+        }
+
+        // Draw game elements
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw question boxes
+            questionBoxes.forEach(box => {
+                if (box.active) {
+                    ctx.fillStyle = 'yellow';
+                    ctx.fillRect(box.x, box.y, box.width, box.height);
+                    
+                    // Draw question mark
+                    ctx.font = '30px Arial';
+                    ctx.fillStyle = 'black';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('?', box.x + box.width/2, box.y + box.height/2);
+                }
+            });
+
+            // Draw all balls and their trails
+            balls.forEach(ball => {
+                // Draw trail
+                ball.trail.forEach((pos, index) => {
+                    const alpha = index / ball.trail.length;
+                    ctx.beginPath();
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+                    ctx.arc(pos.x, pos.y, ball.radius * (0.5 + alpha * 0.5), 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Draw ball
+                ctx.beginPath();
+                ctx.fillStyle = 'white';
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw player paddles with their respective colors
+            playerPaddles.forEach(paddle => {
+                ctx.fillStyle = paddle.color;
+                ctx.fillRect(paddle.x, paddle.y, paddleWidth, paddleHeight);
+            });
+
+            // Draw AI paddles
+            aiPaddles.forEach(paddle => {
+                ctx.fillStyle = paddle.color;
+                ctx.fillRect(paddle.x, paddle.y, paddleWidth, paddleHeight);
+            });
+        }
+
+        // Game loop
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        gameLoop();
+    </script>
+</body>
+</html>
