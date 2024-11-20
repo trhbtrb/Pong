@@ -5,6 +5,7 @@
     <style>
         body {
             display: flex;
+            flex-direction: column; /* Stack elements vertically */
             justify-content: center;
             align-items: center;
             height: 100vh;
@@ -12,6 +13,7 @@
             background: #000;
             color: white;
             font-family: Arial, sans-serif;
+            position: relative; /* To position absolute elements relative to body */
         }
         canvas {
             border: 2px solid white;
@@ -19,16 +21,14 @@
             position: relative;
         }
         #score {
-            position: absolute;
-            top: 20px;
             font-size: 24px;
             color: white;
+            margin-bottom: 50px; /* 50px space below the scoreboard */
         }
         #questionBoxes {
             position: absolute;
             pointer-events: none;
         }
-        
 
         /* New Styles for Overlays and Buttons */
         .overlay {
@@ -60,11 +60,40 @@
             font-size: 20px;
             margin: 10px 0;
         }
+
+        /* New Styles for Instructions */
+        #instructions {
+            margin-top: 50px; /* 50px space above the instructions */
+            text-align: center; /* Center the text */
+        }
+        
+        .instruction-text {
+            font-size: 18px;
+            margin: 5px 0;
+        }
+
+        /* Specific Styles for Player Instructions */
+        .instruction-text-p1 {
+            color: blue; /* Player 1 instruction text color */
+        }
+
+        .instruction-text-p2 {
+            color: #00FF00; /* Player 2 instruction text color (bright green) */
+        }
     </style>
 </head>
 <body>
+    <!-- Scoreboard -->
     <div id="score">Player: 0 | AI: 0</div>
+    
+    <!-- Game Canvas -->
     <canvas id="gameCanvas" width="1280" height="500"></canvas>
+    
+    <!-- Instructions for Player Controls -->
+    <div id="instructions"> 
+        <p class="instruction-text instruction-text-p1">BLUE Paddle: Use <strong>W</strong> and <strong>S</strong> keys to move</p>
+        <p class="instruction-text instruction-text-p2">GREEN Paddle: Use <strong>↑</strong> and <strong>↓</strong> arrow keys to move</p>
+    </div>
 
     <!-- Menu Overlay -->
     <div id="menuOverlay" class="overlay">
