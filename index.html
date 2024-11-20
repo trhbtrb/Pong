@@ -28,18 +28,74 @@
             position: absolute;
             pointer-events: none;
         }
+        
+
+        /* New Styles for Overlays and Buttons */
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid white;
+        }
+        .button {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .reward-text {
+            color: #FFD700;
+            font-size: 20px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <div id="score">Player: 0 | AI: 0</div>
     <canvas id="gameCanvas" width="1280" height="500"></canvas>
 
+    <!-- Menu Overlay -->
+    <div id="menuOverlay" class="overlay">
+        <h2>Kapag nanalo ka, treat kita ng ice cream 1-2 times per month(Lifetime!)</h2>
+        <p>Score 5 points first to win!</p>
+        <p>If AI scores 50 first, you lose!</p>
+        <button id="startButton" class="button">Start Game</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameOverOverlay" class="overlay" style="display: none;">
+        <h2 id="gameResult">Game Over</h2>
+        <p id="gameMessage"></p>
+        <button id="retryButton" class="button">Play Again</button>
+    </div>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreElement = document.getElementById('score');
 
+        // New Variables for Overlays
+        const menuOverlay = document.getElementById('menuOverlay');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const startButton = document.getElementById('startButton');
+        const retryButton = document.getElementById('retryButton');
+
         // Game state
+        let gameState = 'menu'; // Possible states: 'menu', 'playing', 'gameOver'
+
+        // Game state variables
         let playerScore = 0;
         let aiScore = 0;
         let initialBoxesHit = false; // Track if both boxes have been hit
@@ -144,6 +200,66 @@
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') playerPaddles[1].speed = 0;
         });
 
+        // Function to reset the game
+        function resetGame() {
+            playerScore = 0;
+            aiScore = 0;
+            initialBoxesHit = false;
+            balls.length = 0;
+            balls.push(createNewBall());
+            
+            // Reset question boxes
+            questionBoxes.forEach(box => {
+                box.active = true;
+            });
+        
+            // Reset paddle positions
+            playerPaddles.forEach(paddle => {
+                paddle.y = canvas.height / 2 - paddleHeight / 2;
+                paddle.speed = 0;
+            });
+        
+            aiPaddles.forEach(paddle => {
+                paddle.y = canvas.height / 2 - paddleHeight / 2;
+                paddle.speed = 0;
+            });
+        }
+
+        // Function to check if game is over
+        function checkGameOver() {
+            if (playerScore == 5) {
+                gameState = 'gameOver';
+                document.getElementById('gameResult').textContent = 'Congrats beh 🎉';
+                document.getElementById('gameMessage').innerHTML = 
+                    'Start ko at the start of 2025<br>' +
+                    'Ano pala prefer mo love, Dairy Queen® or llaollao?';
+                gameOverOverlay.style.display = 'block';
+                return true;
+            }
+            if (aiScore == 50) {
+                gameState = 'gameOver';
+                document.getElementById('gameResult').textContent = 'BOBO!';
+                document.getElementById('gameMessage').innerHTML = 
+                    'It\'s ok love, you can try again naman!<br>You deserve another chance for your effort';
+                gameOverOverlay.style.display = 'block';
+                return true;
+            }
+            return false;
+        }
+
+        // Add event listeners for start and retry buttons
+        startButton.addEventListener('click', () => {
+            gameState = 'playing';
+            menuOverlay.style.display = 'none';
+            resetGame();
+        });
+
+        retryButton.addEventListener('click', () => {
+            gameState = 'playing';
+            gameOverOverlay.style.display = 'none';
+            resetGame();
+        });
+
         // Update AI paddles with independent and smart behavior
         function updateAI() {
             aiPaddles.forEach((paddle) => {
@@ -182,7 +298,7 @@
 
                 // Update lastUpdate time
                 // Removed random delay addition
-                paddle.lastUpdate = now; // Replaced `now + Math.random() * 50` with `now`
+                paddle.lastUpdate = now; // Replaced now + Math.random() * 50 with now
             });
         }
 
@@ -266,7 +382,7 @@
 
         // Function to create 3 new balls from a question box
         function createNewBallsFromBox(sourceX, sourceY) {
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < 2; i++) {
                 balls.push({
                     x: sourceX,
                     y: sourceY,
@@ -286,6 +402,8 @@
 
         // Update function with integrated ball logic
         function update() {
+            if (gameState !== 'playing') return;
+            
             // Update player paddles
             playerPaddles.forEach(paddle => {
                 paddle.y += paddle.speed;
@@ -374,21 +492,15 @@
                     balls.splice(index, 1);
                     // Always add a new ball after scoring
                     balls.push(createNewBall());
+                    if (checkGameOver()) return;
                 } else if (ball.x > canvas.width) {
                     playerScore++;
                     balls.splice(index, 1);
                     // Always add a new ball after scoring
                     balls.push(createNewBall());
+                    if (checkGameOver()) return;
                 }
             }
-
-            // Remove the following block since we are always adding a new ball upon scoring
-            /*
-            // If no balls left and boxes haven't been hit yet, create a new ball
-            if (balls.length === 0 && !initialBoxesHit) {
-                balls.push(createNewBall());
-            }
-            */
 
             // Update score display
             scoreElement.textContent = `Player: ${playerScore} | AI: ${aiScore}`;
@@ -453,7 +565,7 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Start the game
+        // Start the game loop
         gameLoop();
     </script>
 </body>
