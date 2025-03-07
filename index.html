@@ -255,10 +255,9 @@
         function checkGameOver() {
             if (playerScore == 5) {
                 gameState = 'gameOver';
-                document.getElementById('gameResult').textContent = 'Congrats beh 🎉';
+                document.getElementById('gameResult').textContent = 'You win! 🎉';
                 document.getElementById('gameMessage').innerHTML = 
-                    'Start ko at the start of 2025<br>' +
-                    'Ano pala prefer mo love, Dairy Queen® or llaollao?';
+                    'You can try again';
                 gameOverOverlay.style.display = 'block';
                 return true;
             }
