@@ -264,9 +264,9 @@
             }
             if (aiScore == 50) {
                 gameState = 'gameOver';
-                document.getElementById('gameResult').textContent = 'BOBO!';
+                document.getElementById('gameResult').textContent = 'Game Over!';
                 document.getElementById('gameMessage').innerHTML = 
-                    'It\'s ok love, you can try again naman!<br>You deserve another chance for your effort';
+                    'You can try again naman!';
                 gameOverOverlay.style.display = 'block';
                 return true;
             }
