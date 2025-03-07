@@ -91,13 +91,13 @@
     
     <!-- Instructions for Player Controls -->
     <div id="instructions"> 
-        <p class="instruction-text instruction-text-p1">BLUE Paddle: Use <strong>E</strong> and <strong>D</strong> keys to move</p>
-        <p class="instruction-text instruction-text-p2">GREEN Paddle: Use <strong>K</strong> and <strong>M</strong> arrow keys to move</p>
+        <p class="instruction-text instruction-text-p1">BLUE Paddle: Use <strong>W</strong> and <strong>S</strong> keys to move</p>
+        <p class="instruction-text instruction-text-p2">GREEN Paddle: Use <strong>↑</strong> and <strong>↓</strong> arrow keys to move</p>
     </div>
 
     <!-- Menu Overlay -->
     <div id="menuOverlay" class="overlay">
-        <h2>Kapag nanalo ka, treat kita ng ice cream 1-2 times per month(Lifetime!)</h2>
+        <h2>Are you ready?</h2>
         <p>Score 5 points first to win!</p>
         <p>If AI scores 50 first, you lose!</p>
         <button id="startButton" class="button">Start Game</button>
@@ -215,18 +215,15 @@
 
         // Controls for player paddles
         document.addEventListener('keydown', (e) => {
-            // First paddle controls
-            if (e.key === 'e') playerPaddles[0].speed = -15; // Increased speed
-            if (e.key === 'd') playerPaddles[0].speed = 15;  // Increased speed
-            
-            // Second paddle controls
-            if (e.key === 'k') playerPaddles[1].speed = -15; // Increased speed
-            if (e.key === 'm') playerPaddles[1].speed = 15;  // Increased speed
+            if (e.key === 'w') playerPaddles[0].speed = -15;
+            if (e.key === 's') playerPaddles[0].speed = 15;
+            if (e.key === 'ArrowUp') playerPaddles[1].speed = -15;
+            if (e.key === 'ArrowDown') playerPaddles[1].speed = 15;
         });
 
         document.addEventListener('keyup', (e) => {
-            if (e.key === 'e' || e.key === 'd') playerPaddles[0].speed = 0;
-            if (e.key === 'k' || e.key === 'm') playerPaddles[1].speed = 0;
+            if (e.key === 'w' || e.key === 's') playerPaddles[0].speed = 0;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') playerPaddles[1].speed = 0;
         });
 
         // Function to reset the game
